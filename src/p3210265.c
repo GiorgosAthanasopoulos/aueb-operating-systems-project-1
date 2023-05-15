@@ -8,9 +8,12 @@
 #include <stdio.h>
 // for strtol
 #include <stdlib.h>
-// for sleep
+// for CLOCK_REALTIME
 #include <time.h>
+// for sleep
 #include <unistd.h>
+// for va_start, va_end, va_list, etc... (printf wrapper)
+#include <stdarg.h>
 
 // TODO: unmark all sleeps
 
@@ -86,6 +89,28 @@ uint randRange(uint low, uint high)
     return low + (rand() % (high - low + 1));
 }
 
+void print(const char *format, ...)
+{
+    pthread_mutex_lock(&printfLock);
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+    pthread_mutex_unlock(&printfLock);
+}
+
+void wait_until_cond(uint *a, pthread_mutex_t *mutex)
+{
+    uint done;
+    do
+    {
+        usleep(50 * 1000);
+        pthread_mutex_lock(mutex);
+        done = *a;
+        pthread_mutex_unlock(mutex);
+    } while (!done);
+}
+
 // pthread_create wants __arg to be a pointer. since we want to pass in a number and we cannot use
 // the i index of the for loop for lifetime purposes, we just allocate memory and put the number in there
 //
@@ -119,18 +144,14 @@ int pay(TOrder *order)
 
     if (randRange(0, 100) <= PFail)
     {
-        pthread_mutex_lock(&printfLock);
-        printf("Payment for order with id %d failed!\n", *order->oid);
-        pthread_mutex_unlock(&printfLock);
+        print("Payment for order with id %d failed!\n", *order->oid);
 
         failedOrders++;
         pthread_mutex_unlock(&statisticsLock);
         return 0;
     }
 
-    pthread_mutex_lock(&printfLock);
-    printf("Payment for order with id %d was successfull!\n", *order->oid);
-    pthread_mutex_unlock(&printfLock);
+    print("Payment for order with id %d was successfull!\n", *order->oid);
 
     for (uint i = 0; i < order->quantity; ++i)
         if (order->pizzas[i])
@@ -174,10 +195,8 @@ void *deliveryMen(void *arg)
         maxCoolingTime = coolingTime;
     totalCoolingTime += coolingTime;
 
-    pthread_mutex_lock(&printfLock);
-    printf("Order with id %d was delivered in %ld minutes!\n", *cooksArg->order->oid,
-           ts.tv_sec - cooksArg->startSeconds);
-    pthread_mutex_unlock(&printfLock);
+    print("Order with id %d was delivered in %ld minutes!\n", *cooksArg->order->oid,
+          (ts.tv_sec - cooksArg->startSeconds) / 60);
 
     free(cooksArg->order->oid);
     free(cooksArg->order->pizzas);
@@ -206,15 +225,12 @@ void *packers(void *arg)
     ttimespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
 
-    pthread_mutex_lock(&printfLock);
-    printf("Order with id %d got ready in %ld minutes.\n", *cooksArg->order->oid, ts.tv_sec - cooksArg->startSeconds);
-    pthread_mutex_destroy(&printfLock);
+    print("Order with id %d got ready in %ld minutes.\n", *cooksArg->order->oid, ts.tv_sec - CooksArg.startSeconds);
 
     pthread_t deliveryMan;
     pthread_create(&deliveryMan, NULL, deliveryMen, (void *)cooksArg);
 
     sem_post(&packers_sem);
-
     pthread_exit(NULL);
 }
 
@@ -234,28 +250,12 @@ void *ovens(void *arg)
     pthread_t packer;
     pthread_create(&packer, NULL, packers, (void *)cooksArg);
 
-    uint done = 0;
-    do
-    {
-        usleep(50 * 1000);
-        pthread_mutex_lock(&packerDoneLock);
-        done = packerDone[*cooksArg->order->oid];
-        pthread_mutex_unlock(&packerDoneLock);
-    } while (!done);
+    wait_until_cond(&packerDone[*cooksArg->order->oid], &packerDoneLock);
 
     // update available ovens
     pthread_mutex_lock(&availableOvensLock);
     availableOvens += cooksArg->order->quantity;
     pthread_mutex_unlock(&availableOvensLock);
-
-    done = 0;
-    do
-    {
-        usleep(50 * 1000);
-        pthread_mutex_lock(&packerDoneLock);
-        done = packerDone[*cooksArg->order->oid];
-        pthread_mutex_unlock(&packerDoneLock);
-    } while (!done);
 
     pthread_exit(NULL);
 }
@@ -289,7 +289,6 @@ void *cooks(void *arg)
     pthread_create(&oven, NULL, ovens, (void *)cooksArg);
 
     sem_post(&cooks_sem);
-
     pthread_exit(NULL);
 }
 
