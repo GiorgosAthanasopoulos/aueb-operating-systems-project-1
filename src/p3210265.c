@@ -15,8 +15,6 @@
 // for va_start, va_end, va_list, etc... (printf wrapper)
 #include <stdarg.h>
 
-// TODO: unmark all sleeps
-
 // wrapper class for order
 // quantity: amount of pizzas in the order
 // pizzas: uint array: 0 for plain pizza, 1 for special
@@ -69,9 +67,7 @@ uint *packerDone;
 pthread_mutex_t statisticsLock = PTHREAD_MUTEX_INITIALIZER;
 // mutex lock for io(printf,etc.)
 pthread_mutex_t printfLock = PTHREAD_MUTEX_INITIALIZER;
-// mutex for the above condition
-pthread_mutex_t packerDoneMutex = PTHREAD_MUTEX_INITIALIZER;
-// mutex lock for the above variable
+// mutex lock for the availableOvens variable
 pthread_mutex_t availableOvensLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t packerDoneLock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -138,7 +134,7 @@ TOrder *randOrder(uint *oid)
 // pay for an order
 int pay(TOrder *order)
 {
-    // sleep(randRange(TPaymentlow, TPaymenthigh));
+    sleep(randRange(TPaymentlow, TPaymenthigh));
 
     pthread_mutex_lock(&statisticsLock);
 
@@ -177,13 +173,14 @@ void *deliveryMen(void *arg)
     TCooksArg *cooksArg = (TCooksArg *)arg;
 
     // deliver
-    // sleep(2 * randRange(TDellow, TDelhigh));
+    sleep(2 * randRange(TDellow, TDelhigh));
 
     // get current time
     ttimespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
 
     // calculate deliveryTime and updateStatistics
+    pthread_mutex_lock(&statisticsLock);
     long deliveryTime = ts.tv_sec - cooksArg->startSeconds;
     if (maxServiceTime < deliveryTime)
         maxServiceTime = deliveryTime;
@@ -194,15 +191,10 @@ void *deliveryMen(void *arg)
     if (maxCoolingTime < coolingTime)
         maxCoolingTime = coolingTime;
     totalCoolingTime += coolingTime;
+    pthread_mutex_unlock(&statisticsLock);
 
-    print("Order with id %d was delivered in %ld minutes!\n", *cooksArg->order->oid,
+    print("Order with id %d was delivered in %.2f minutes!\n", *cooksArg->order->oid,
           (ts.tv_sec - cooksArg->startSeconds) / 60);
-
-    free(cooksArg->order->oid);
-    free(cooksArg->order->pizzas);
-    free(cooksArg->order);
-    free(cooksArg);
-    sem_post(&deliveryMen_sem);
 
     pthread_exit(NULL);
 }
@@ -214,7 +206,7 @@ void *packers(void *arg)
     TCooksArg *cooksArg = (TCooksArg *)arg;
 
     // pack
-    // sleep(TPack * cooksArg->order->quantity);
+    sleep(TPack * cooksArg->order->quantity);
 
     // signal that we re done packing to ovens so that they are freed
     pthread_mutex_lock(&packerDoneLock);
@@ -225,12 +217,14 @@ void *packers(void *arg)
     ttimespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
 
-    print("Order with id %d got ready in %ld minutes.\n", *cooksArg->order->oid, ts.tv_sec - CooksArg.startSeconds);
+    print("Order with id %d got ready in %ld minutes!\n", *cooksArg->order->oid,
+          (ts.tv_sec - cooksArg->startSeconds) / 60);
 
     pthread_t deliveryMan;
     pthread_create(&deliveryMan, NULL, deliveryMen, (void *)cooksArg);
 
     sem_post(&packers_sem);
+    pthread_join(deliveryMan, NULL);
     pthread_exit(NULL);
 }
 
@@ -239,7 +233,7 @@ void *ovens(void *arg)
     TCooksArg *cooksArg = (TCooksArg *)arg;
 
     // bake
-    // sleep(cooksArg->order->quantity * TBake);
+    sleep(cooksArg->order->quantity * TBake);
 
     // get current time
     ttimespec ts;
@@ -257,6 +251,7 @@ void *ovens(void *arg)
     availableOvens += cooksArg->order->quantity;
     pthread_mutex_unlock(&availableOvensLock);
 
+    pthread_join(packer, NULL);
     pthread_exit(NULL);
 }
 
@@ -267,7 +262,7 @@ void *cooks(void *arg)
     TCooksArg *cooksArg = (TCooksArg *)arg;
 
     // cook
-    // sleep(TPrep * cooksArg->order->quantity);
+    sleep(TPrep * cooksArg->order->quantity);
 
     // wait until there are cooksArg->order->quanity amount of ovens available
     int _availableOvens;
@@ -289,6 +284,7 @@ void *cooks(void *arg)
     pthread_create(&oven, NULL, ovens, (void *)cooksArg);
 
     sem_post(&cooks_sem);
+    pthread_join(oven, NULL);
     pthread_exit(NULL);
 }
 
@@ -314,6 +310,12 @@ void *handleOrder(void *arg)
 
         pthread_t cook;
         pthread_create(&cook, NULL, cooks, (void *)cooksArg);
+        pthread_join(cook, NULL);
+
+        free(cooksArg->order->oid);
+        free(cooksArg->order->pizzas);
+        free(cooksArg->order);
+        free(cooksArg);
     }
 
     pthread_exit(NULL);
@@ -337,7 +339,7 @@ int orderSystem(uint seed, uint NCust)
         pthread_create(&order[i], NULL, handleOrder, (void *)getOid(i));
 
         // wait for next customer to come in
-        // sleep(randRange(TOrderlow, TOrderhigh));
+        sleep(randRange(TOrderlow, TOrderhigh));
     }
 
     for (uint i = 0; i < NCust; ++i)
@@ -349,7 +351,6 @@ int orderSystem(uint seed, uint NCust)
     pthread_mutex_destroy(&statisticsLock);
     pthread_mutex_destroy(&printfLock);
     pthread_mutex_destroy(&availableOvensLock);
-    pthread_mutex_destroy(&packerDoneMutex);
     pthread_mutex_destroy(&packerDoneLock);
     sem_destroy(&cooks_sem);
     sem_destroy(&packers_sem);
