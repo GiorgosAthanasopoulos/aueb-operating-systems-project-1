@@ -37,7 +37,6 @@ struct CooksArg
 // rename some structs/types so that we have to type less
 typedef struct Order TOrder;
 typedef struct CooksArg TCooksArg;
-typedef unsigned int uint;
 typedef struct timespec ttimespec;
 
 // total income that we made from all orders
@@ -193,9 +192,10 @@ void *deliveryMen(void *arg)
     totalCoolingTime += coolingTime;
     pthread_mutex_unlock(&statisticsLock);
 
-    print("Order with id %d was delivered in %.2f minutes!\n", *cooksArg->order->oid,
-          (ts.tv_sec - cooksArg->startSeconds) / 60);
+    double deliveredMinutes = (double)(((double)ts.tv_sec - (double)cooksArg->startSeconds) / (double)60);
+    print("Order with id %d was delivered in %.2f minutes!\n", *cooksArg->order->oid, deliveredMinutes);
 
+    sem_post(&deliveryMen_sem);
     pthread_exit(NULL);
 }
 
@@ -217,8 +217,8 @@ void *packers(void *arg)
     ttimespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
 
-    print("Order with id %d got ready in %ld minutes!\n", *cooksArg->order->oid,
-          (ts.tv_sec - cooksArg->startSeconds) / 60);
+    double readyMinutes = (double)(((double)ts.tv_sec - (double)cooksArg->startSeconds) / (double)60);
+    print("Order with id %d got ready in %.2f minutes!\n", *cooksArg->order->oid, readyMinutes);
 
     pthread_t deliveryMan;
     pthread_create(&deliveryMan, NULL, deliveryMen, (void *)cooksArg);
@@ -367,7 +367,7 @@ int orderSystem(uint seed, uint NCust)
     printf("Average service time: %d,\n", totalServiceTime / (orderCount - failedOrders));
     printf("Max service time: %d,\n", maxServiceTime);
     printf("Average cooling time: %d,\n", totalCoolingTime / (orderCount - failedOrders));
-    printf("Max cooling time: %d.", maxCoolingTime);
+    printf("Max cooling time: %d.\n", maxCoolingTime);
 
     return 0;
 }

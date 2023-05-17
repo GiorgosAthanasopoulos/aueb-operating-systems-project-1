@@ -1,12 +1,12 @@
 typedef unsigned int uint;
 
-// cooks
+// how many cooks we have
 uint NCook = 2;
-// ovens
+// how many ovens we have
 uint NOven = 15;
-// packers
+// how many packers we have
 uint NPacker = 2;
-// delivery men
+// how many delivery men we have
 uint NDeliverer = 10;
 // lowest time it takes for a customer to get uinto the ordering system
 uint TOrderlow = 1;
@@ -34,7 +34,7 @@ uint TPrep = 1;
 uint TBake = 10;
 // time it takes to pack each pizza
 uint TPack = 1;
-// lowest amount of time it takes for the delivery guy to deliver an order 
+// lowest amount of time it takes for the delivery guy to deliver an order
 uint TDellow = 5;
 // highest amount of time it takes for the delivery guy to deliver an order
 uint TDelhigh = 15;
