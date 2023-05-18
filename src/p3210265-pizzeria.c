@@ -1,5 +1,7 @@
+// @ Giorgos Athanasopoulos 2023
+
 // constants provided in `Input and data` section of the project requirements pdf
-#include "p3210265.h"
+#include "p3210265-pizzeria.h"
 // for threading api
 #include <pthread.h>
 // for semaphores api

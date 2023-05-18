@@ -1,3 +1,5 @@
+// @ Giorgos Athanasopoulos 2023
+
 typedef unsigned int uint;
 
 // how many cooks we have
