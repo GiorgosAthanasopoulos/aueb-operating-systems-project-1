@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+# test-res.sh
+# @ Giorgos Athanasopoulos 2023
+set -e
 
 bin="bin"
 
-if [[ ! -d "$bin" ]]
-then
-    mkdir "$bin"
+if [[ ! -d "$bin" ]]; then
+	mkdir "$bin"
 fi
 
 source="p3210265-pizzeria.c"
