@@ -1,0 +1,68 @@
+* Giorgos Athanasopoulos - p3210265 / Project overview pdf
+(Written in english - font rendering in org files containg languages other than =en= is weird)
+
+* Threads: 
+
+    - main (exits when handleOrder is done) ->
+        - handleOrder (exits when all of the threads representing the state of the delivery exit) ->
+            - cook -> oven -> packer -> deliveryMan (each one of these exit when the directly next child-thread is exited. E.g. cook exits when oven exits, oven exits when packer is done, etc.).
+
+* Code Structure:
+
+    - The {main} function creates the ordering system by passing argv[1] (seed) and argv[2] (customer count).
+
+        - The ordering system:
+            - feeds srand the seed,
+            - initializes the needed variables (mostly semaphores) and,
+            - creates a thread for every order using  the handleOrder(uint) function,(sleeps [TOrderlow, TOrderhigh] amount of seconds in between customers as said in the project requirements pdf).
+            - waits for the threads-orders to finish processing(by using pthread_join),
+            - prints the statistics,
+            - frees used memory, semaphores/mutexes.
+
+            - Order handler (handleOrder(uint)):
+                - updates orderCount statistic ,
+                - tries to pay for order ,
+                    - if it fails then it frees the order memory and kills the thread.
+                    - if the payment is successfull:
+                        - it dispatches a new thread for the cook, wait until its done(not only the cook, but all the threads created in the nested function calls),
+                        - frees the order memory,
+                        - kills the thread.
+
+                - Cook handler (cooks(CooksArg)):
+                    - cooks order by sleeping for {TPrep * cooksArg->order->quantity} seconds,
+                    - waits until there are enough available ovens in order to bake the whole order at once,
+                    - dispatches a new thread for the ovens, wait until they're done,
+                    - kills the thread.
+
+                - Oven handler(ovens(CooksArg)):
+                    - bakes the order by sleeping for {TBake * cooksArg->order->quantity} seconds,
+                    - registers the current time in cooksArg->bakeSeconds (so that we know when the order was finished baking - needed in statistics),
+                    - dispatches a new thread for the packer. Once the packer is done it frees the ovens and finally,
+                    - kills the thread.
+
+                - Packer handler (packers(CooksArg)):
+                    - packs the order by sleeping for {TPack * cooksArg->order->quantity} seconds,
+                    - signals to the ovens that we are done packing, so that they are freed,
+                    - outputs {readyMinutes: time it took to pack the order from when the order was first received} statistic to stdout, 
+                    - dispatches a new thread for the delivery man and wait until its done,
+                    - kills the thread.
+
+                - Delivery man handler(deliveryMen(CooksArg)):
+                    - delivers the order by sleeping for {2 * [TDellow, TDelhigh]} seconds,
+                    - updates service and cooling statistics(maxServiceTime, totalServiceTime and maxCoolingTime, totalCoolingTime accordingly),
+                    - outputs {deliveredMinutes: time it took to deliver the order from when the order was first received} statistic to stdout,
+                    - kills the thread.
+
+* Data types:
+    1. Order
+    2. CooksArg
+    ** For more info refer to the  comments in the code file(p3210265-pizzeria.c).
+
+* Limitations
+    - {packerDone: uint*}: We use an array of booleans in order to signal to the ovens that we are done packing the orders so that they are freed. We have one array index for every order. That means for high amount of orders-customers, the memory consumption will be higher. 
+    POSSIBLE FIX: use pthread_cond_wait (not as simple)
+
+* Extra
+    - If a method was not commented on, it is for 1 of 2 reasons:
+        - easy to understand or, 
+        - comments explaining the method in detail, exist inside the code file (p3210265-pizzeria.c).
