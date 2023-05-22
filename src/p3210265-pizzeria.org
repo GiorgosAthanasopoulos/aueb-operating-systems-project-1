@@ -1,5 +1,7 @@
-* Giorgos Athanasopoulos - p3210265 / Project overview pdf
-(Written in english - font rendering in org files containg languages other than =en= is weird)
+* Giorgos Athanasopoulos - p3210265 / Project overview pdf - AUEB operating systems project 1
+(Written in english - font rendering in org exported pdf files containg languages other than =en= is weird)
+(OS: arcolinuxb-hyprland(wayland))
+(GCC: v12.2.0)
 
 * Threads: 
 
