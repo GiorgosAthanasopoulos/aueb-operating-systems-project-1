@@ -11,9 +11,10 @@ fi
 
 source="p3210265-pizzeria.c"
 exe="p3210265-pizzeria"
+exe_path="./$bin/$exe"
 seed="1000"
 ncust="100"
 
-gcc "./$source" -o "./$bin/$exe"
-chmod +x "./$bin/$exe"
-"./$bin/$exe" "$seed" "$ncust"
+gcc "./$source" -o "$exe_path"
+chmod +x "$exe_path"
+"$exe_path" "$seed" "$ncust"
