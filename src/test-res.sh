@@ -14,7 +14,7 @@ exe="p3210265-pizzeria"
 exe_path="./$bin/$exe"
 seed="1000"
 ncust="100"
-libs="-lpthread -lrt"
+libs="-lpthread"
 
 gcc ./$source -o $exe_path $libs
 chmod +x $exe_path
