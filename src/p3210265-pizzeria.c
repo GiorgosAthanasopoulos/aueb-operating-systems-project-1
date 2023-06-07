@@ -14,6 +14,7 @@
 #include <stdlib.h>
 // for CLOCK_REALTIME
 #include <time.h>
+#include <sys/time.h>
 // for sleep
 #include <unistd.h>
 // for va_start, va_end, va_list, etc... (printf wrapper)
@@ -103,21 +104,10 @@ void waitUntilCond(uint *a, pthread_mutex_t *mutex)
     uint done;
     do
     {
-        usleep(50 * 1000);
         pthread_mutex_lock(mutex);
         done = *a;
         pthread_mutex_unlock(mutex);
     } while (!done);
-}
-
-// so that we dont free invalid pointer
-void safeFree(void *mem)
-{
-    if (mem != NULL)
-    {
-        free(mem);
-        mem = NULL;
-    }
 }
 
 // pthread_create wants __arg to be a pointer. since we want to pass in a
@@ -343,12 +333,12 @@ void *handleOrder(void *arg)
         pthread_create(&cook, NULL, cooks, (void *)cooksArg);
         pthread_join(cook, NULL);
 
-        safeFree(cooksArg);
+        free(cooksArg);
     }
 
-    safeFree(order->oid);
-    safeFree(order->pizzas);
-    safeFree(order);
+    free(order->oid);
+    free(order->pizzas);
+    free(order);
     pthread_exit(NULL);
 }
 
@@ -409,8 +399,8 @@ int orderSystem(uint seed, uint NCust)
     printStatistics();
 
     destroyMutexesSems();
-    safeFree(order);
-    safeFree(packerDone);
+    free(order);
+    free(packerDone);
     return 0;
 }
 
